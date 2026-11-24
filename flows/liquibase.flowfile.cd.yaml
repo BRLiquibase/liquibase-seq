@@ -1,0 +1,72 @@
+###
+### CD flow. Runs on merge. Drift check, deploy, optional rollback test, snapshot.
+### Liquibase version: 6.0.2
+###
+### Set outside this file (never in it): LIQUIBASE_COMMAND_URL, LIQUIBASE_COMMAND_USERNAME,
+###   LIQUIBASE_COMMAND_PASSWORD, LIQUIBASE_LICENSE_KEY
+###
+### Variables:
+###   LB_DB, LB_DB_TYPE   see liquibase.flowfile.drift.yaml
+###   LB_ENVIRONMENT      DEV, QA or PROD
+###   LB_LABELS           deploy only changesets with this label (default: all)
+###   LB_TEST_DRIFT       T or F. Check for drift before deploying. Take a snapshot after.
+###   LB_TEST_ROLLBACK    T or F. Deploy, roll back, deploy again. Never runs in PROD.
+###
+
+globalVariables:
+  LB_DB_TYPE: "${LB_DB_TYPE:-postgresql}"
+  LB_ENVIRONMENT: "${LB_ENVIRONMENT:-DEV}"
+  LB_LABELS: "${LB_LABELS:-null}"
+  LB_TEST_DRIFT: "${LB_TEST_DRIFT:-T}"
+  LB_TEST_ROLLBACK: "${LB_TEST_ROLLBACK:-F}"
+  SNAPSHOT_DIR: "${SNAPSHOT_DIR:-snapshots}"
+  SNAPSHOT_FILE: "${SNAPSHOT_DIR}/${LB_DB}_${LB_ENVIRONMENT}.json"
+
+stages:
+  Verify:
+    actions:
+      - type: liquibase
+        command: connect
+      - type: liquibase
+        command: validate
+        cmdArgs: { strict: "true" }
+      - type: liquibase
+        command: status
+        cmdArgs: { label-filter: "${LB_LABELS}" }
+  Drift:
+    actions:
+      - type: liquibase
+        if: "${LB_TEST_DRIFT} == 'T'"
+        command: flow
+        cmdArgs: { flow-file: "flows/liquibase.flowfile.drift.yaml" }
+  Deploy:
+    actions:
+      - type: control
+        if: "status.changesetCount == 0"
+        command: exit
+        cmdArgs: { exitCode: "0", exitMessage: "Database is current." }
+      - type: liquibase
+        command: update
+        cmdArgs: { label-filter: "${LB_LABELS}" }
+  RollbackTest:
+    actions:
+      - type: liquibase
+        if: "${LB_TEST_ROLLBACK} == 'T' && !CONTAINS('${LB_ENVIRONMENT}', 'PROD')"
+        command: rollback-one-update
+        cmdArgs: { force: "true" }
+      - type: liquibase
+        if: "${LB_TEST_ROLLBACK} == 'T' && !CONTAINS('${LB_ENVIRONMENT}', 'PROD')"
+        command: update
+        cmdArgs: { label-filter: "${LB_LABELS}" }
+  Snapshot:
+    actions:
+      - type: liquibase
+        if: "${LB_TEST_DRIFT} == 'T'"
+        command: snapshot
+        globalArgs: { outputfile: "${SNAPSHOT_FILE}" }
+        cmdArgs: { snapshotFormat: "json" }
+
+endStage:
+  actions:
+    - type: liquibase
+      command: history

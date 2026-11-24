@@ -1,0 +1,25 @@
+###
+### Drift flow. Compares the database to the snapshot taken after the last deploy.
+### Fails if someone changed the database outside Liquibase.
+### Liquibase version: 6.0.2
+###
+### Set outside this file:
+###   LB_DB            solstice or seqdatamart
+###   LB_DB_TYPE       postgresql or mssql
+###   LB_ENVIRONMENT   DEV, QA or PROD
+###   SNAPSHOT_DIR     a folder that keeps its files between runs. Relative path only.
+###
+
+globalVariables:
+  LB_DB_TYPE: "${LB_DB_TYPE:-postgresql}"
+  LB_ENVIRONMENT: "${LB_ENVIRONMENT:-DEV}"
+  SNAPSHOT_DIR: "${SNAPSHOT_DIR:-snapshots}"
+  SNAPSHOT_FILE: "${SNAPSHOT_DIR}/${LB_DB}_${LB_ENVIRONMENT}.json"
+
+stages:
+  Drift:
+    actions:
+      - type: liquibase
+        if: "exists('${SNAPSHOT_FILE}', false)"
+        command: diff
+        cmdArgs: { referenceURL: "offline:${LB_DB_TYPE}?snapshot=${SNAPSHOT_FILE}", drift-severity: "1" }

@@ -1,0 +1,30 @@
+# PostgreSQL (solstice)
+# Copy to liquibase.properties in the repo root. That file is gitignored.
+# The pipelines do this for you.
+# No passwords here. Each value is an AWS Secrets Manager lookup:
+# aws-secrets,<secret name>,<key>
+# Environment variables override anything in this file.
+
+changelogFile=changelogs/solstice/changelog.sql
+searchPath=.
+
+url=aws-secrets,seq-poc-solstice-dev,url
+username=aws-secrets,seq-poc-solstice-dev,username
+password=aws-secrets,seq-poc-solstice-dev,password
+liquibase.licenseKey=aws-secrets,seq-poc-license,key
+
+# Reports: an HTML report for each command. Set to false to turn all reports off.
+liquibase.reports.enabled=true
+liquibase.reports.path=reports
+# liquibase.reports.name=
+# liquibase.reports.suppressSql=false
+
+# Logs: JSON, one line per event. Send to any log tool.
+liquibase.logFormat=JSON
+liquibase.logFile=liquibase.json
+liquibase.logLevel=INFO
+
+# History of every change Liquibase makes
+liquibase.dbclhistory.enabled=true
+
+liquibase.showBanner=false

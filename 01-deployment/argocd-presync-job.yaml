@@ -1,0 +1,31 @@
+# Runs the Liquibase flow before the app rolls out.
+# If this Job fails, Argo CD stops the sync.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seq-db-migrate
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seq-liquibase            # placeholder: needs read access to the AWS secrets
+      containers:
+        - name: liquibase
+          image: REGISTRY/seq-db-changelog:TAG     # placeholder
+          args: ["flow", "--flow-file=flows/liquibase.flowfile.cd.yaml"]
+          env:
+            - { name: LIQUIBASE_COMMAND_URL,      value: "aws-secrets,seq-poc-solstice-dev,url" }
+            - { name: LIQUIBASE_COMMAND_USERNAME, value: "aws-secrets,seq-poc-solstice-dev,username" }
+            - { name: LIQUIBASE_COMMAND_PASSWORD, value: "aws-secrets,seq-poc-solstice-dev,password" }
+            - { name: LIQUIBASE_LICENSE_KEY,      value: "aws-secrets,seq-poc-license,key" }
+            - { name: LIQUIBASE_COMMAND_CHANGELOG_FILE, value: "changelogs/solstice/changelog.sql" }
+            - { name: LIQUIBASE_SEARCH_PATH,      value: "/liquibase" }
+            - { name: LB_ENVIRONMENT,             value: "DEV" }
+            - { name: LB_DB,                      value: "solstice" }
+            - { name: LB_DB_TYPE,                 value: "postgresql" }
+            - { name: LB_TEST_DRIFT,              value: "F" }
+            - { name: LIQUIBASE_REPORTS_ENABLED,  value: "false" }
